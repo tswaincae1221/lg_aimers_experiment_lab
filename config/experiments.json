@@ -1,0 +1,492 @@
+{
+  "seed": 42,
+  "n_jobs": 4,
+  "validation_season": 2024,
+  "smoothing": 50.0,
+  "accepted_mapping_grades": ["확정", "높음"],
+  "baseline_experiment": "v1__lgbm_base",
+  "save_validation_models": false,
+  "modes": {
+    "quick": {
+      "max_rows_per_season": 5000,
+      "max_trackman_rows": 300000
+    },
+    "full": {
+      "max_rows_per_season": null,
+      "max_trackman_rows": null
+    }
+  },
+  "feature_sets": {
+    "raw_minimal": {
+      "description": "공식 원본 피처 + 모델 실행에 필요한 최소 자료형·결측 처리",
+      "input_view": "raw_minimal",
+      "preprocessing_stage": "raw_minimal",
+      "blocks": [],
+      "drop_patterns": []
+    },
+    "v1": {
+      "description": "기존 V1 155개 피처",
+      "input_view": "v1",
+      "preprocessing_stage": "v1",
+      "blocks": [],
+      "drop_patterns": []
+    },
+    "v1_asof": {
+      "description": "V1 + 공식 asof 추세·대조 13개",
+      "blocks": ["asof_trend"],
+      "drop_patterns": []
+    },
+    "v1_asof_threat_ball_only": {
+      "description": "V1 + asof 추세 + 타자위협도×볼비율 1개",
+      "blocks": ["asof_trend", "batter_threat_interactions"],
+      "drop_patterns": [
+        "hand_match",
+        "success_interact",
+        "reverse_x_middle",
+        "threat_x_reverse",
+        "threat_x_middle"
+      ]
+    },
+    "v1_asof_threat_no_ball": {
+      "description": "V1 + asof 추세 + 타자위협 교차피처 중 threat_x_ball 제외",
+      "blocks": ["asof_trend", "batter_threat_interactions"],
+      "drop_patterns": ["threat_x_ball"]
+    },
+    "v1_asof_threat": {
+      "description": "V1 + asof 추세 + 타자위협 교차피처 6개",
+      "blocks": ["asof_trend", "batter_threat_interactions"],
+      "drop_patterns": []
+    },
+    "v1_asof_situation": {
+      "description": "V1 + asof 추세 + 상황·압박 상호작용",
+      "blocks": ["asof_trend", "situation"],
+      "drop_patterns": []
+    },
+    "v1_all_rowwise": {
+      "description": "V1 + asof + 상황 + 구종 구성 + 표본 신뢰도",
+      "input_view": "v1",
+      "preprocessing_stage": "v1_all",
+      "blocks": ["asof_trend", "situation", "pitchmix", "reliability"],
+      "drop_patterns": []
+    },
+    "v1_all_threat": {
+      "description": "V1 전체 row-wise 피처 + 타자 위협도 교차피처 6개",
+      "input_view": "v1",
+      "preprocessing_stage": "v1_all_threat",
+      "blocks": [
+        "asof_trend",
+        "situation",
+        "pitchmix",
+        "reliability",
+        "batter_threat_interactions"
+      ],
+      "drop_patterns": []
+    },
+    "v1_all_no_ids": {
+      "description": "전체 row-wise 피처에서 투수·타자 ID 제거",
+      "blocks": ["asof_trend", "situation", "pitchmix", "reliability"],
+      "drop_patterns": ["pitcher_id", "batter_id"]
+    },
+    "v1_all_no_trackman": {
+      "description": "전체 row-wise 피처에서 Trackman 계열 제거",
+      "blocks": ["asof_trend", "situation", "pitchmix", "reliability"],
+      "drop_patterns": ["tm_*", "trackman_*"]
+    }
+  },
+  "models": {
+    "constant": {
+      "type": "constant",
+      "description": "학습 성공률만 예측하는 기준선",
+      "params": {}
+    },
+    "lgbm_base": {
+      "type": "lightgbm",
+      "description": "V1과 동일한 기본 LightGBM",
+      "params": {
+        "n_estimators": 1500,
+        "early_stopping_rounds": 100,
+        "learning_rate": 0.025,
+        "num_leaves": 31,
+        "max_depth": -1,
+        "min_child_samples": 300,
+        "subsample": 0.85,
+        "subsample_freq": 1,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.2,
+        "reg_lambda": 3.0,
+        "max_bin": 255
+      }
+    },
+    "lgbm_regularized": {
+      "type": "lightgbm",
+      "description": "표본이 많은 데이터에 맞춘 보수적 LightGBM",
+      "params": {
+        "n_estimators": 1800,
+        "early_stopping_rounds": 120,
+        "learning_rate": 0.02,
+        "num_leaves": 24,
+        "max_depth": 8,
+        "min_child_samples": 500,
+        "subsample": 0.8,
+        "subsample_freq": 1,
+        "colsample_bytree": 0.75,
+        "reg_alpha": 0.5,
+        "reg_lambda": 8.0,
+        "max_bin": 127
+      }
+    },
+    "lgbm_wide": {
+      "type": "lightgbm",
+      "description": "상호작용 탐색을 늘린 넓은 LightGBM",
+      "params": {
+        "n_estimators": 1400,
+        "early_stopping_rounds": 100,
+        "learning_rate": 0.025,
+        "num_leaves": 63,
+        "max_depth": -1,
+        "min_child_samples": 400,
+        "subsample": 0.85,
+        "subsample_freq": 1,
+        "colsample_bytree": 0.9,
+        "reg_alpha": 0.3,
+        "reg_lambda": 6.0,
+        "max_bin": 255
+      }
+    },
+    "logistic": {
+      "type": "logistic",
+      "description": "빈도 인코딩 Logistic Regression",
+      "params": {
+        "C": 0.15,
+        "max_iter": 250,
+        "solver": "lbfgs"
+      }
+    },
+    "hist_gbdt": {
+      "type": "hist_gbdt",
+      "description": "scikit-learn Histogram Gradient Boosting",
+      "params": {
+        "learning_rate": 0.06,
+        "max_iter": 350,
+        "max_leaf_nodes": 31,
+        "min_samples_leaf": 250,
+        "l2_regularization": 3.0
+      }
+    },
+    "extra_trees": {
+      "type": "extra_trees",
+      "description": "다양성이 큰 Extra Trees",
+      "params": {
+        "n_estimators": 350,
+        "max_depth": 18,
+        "min_samples_leaf": 50,
+        "max_features": 0.65,
+        "bootstrap": true,
+        "max_samples": 0.45
+      }
+    },
+    "xgboost": {
+      "type": "xgboost",
+      "description": "선택 설치 XGBoost hist",
+      "params": {
+        "n_estimators": 1400,
+        "early_stopping_rounds": 100,
+        "learning_rate": 0.03,
+        "max_depth": 7,
+        "min_child_weight": 60,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.2,
+        "reg_lambda": 4.0
+      }
+    },
+    "catboost": {
+      "type": "catboost",
+      "description": "선택 설치 CatBoost",
+      "early_stopping_rounds": 100,
+      "params": {
+        "iterations": 1400,
+        "learning_rate": 0.035,
+        "depth": 8,
+        "l2_leaf_reg": 6.0
+      }
+    },
+    "lgbm_four": {
+      "type": "lightgbm",
+      "family": "LightGBM",
+      "description": "4모델 공정 비교용 LightGBM (2023 튜닝 후 2019~2023 재학습)",
+      "refit_after_tuning": true,
+      "params": {
+        "n_estimators": 1500,
+        "early_stopping_rounds": 100,
+        "learning_rate": 0.025,
+        "num_leaves": 31,
+        "max_depth": -1,
+        "min_child_samples": 300,
+        "subsample": 0.85,
+        "subsample_freq": 1,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.2,
+        "reg_lambda": 3.0,
+        "max_bin": 255
+      }
+    },
+    "hist_gbdt_four": {
+      "type": "hist_gbdt",
+      "family": "HistGradientBoosting",
+      "description": "4모델 공정 비교용 sklearn HistGradientBoosting",
+      "refit_after_tuning": true,
+      "params": {
+        "learning_rate": 0.06,
+        "max_iter": 350,
+        "max_leaf_nodes": 31,
+        "min_samples_leaf": 250,
+        "l2_regularization": 3.0
+      }
+    },
+    "xgboost_four": {
+      "type": "xgboost",
+      "family": "XGBoost",
+      "description": "4모델 공정 비교용 XGBoost (2023 튜닝 후 2019~2023 재학습)",
+      "refit_after_tuning": true,
+      "params": {
+        "n_estimators": 1400,
+        "early_stopping_rounds": 100,
+        "learning_rate": 0.03,
+        "max_depth": 7,
+        "min_child_weight": 60,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.2,
+        "reg_lambda": 4.0,
+        "eval_metric": "rmse"
+      }
+    },
+    "catboost_four": {
+      "type": "catboost",
+      "family": "CatBoost",
+      "description": "4모델 공정 비교용 CatBoost (2023 튜닝 후 2019~2023 재학습)",
+      "refit_after_tuning": true,
+      "early_stopping_rounds": 100,
+      "params": {
+        "iterations": 1400,
+        "learning_rate": 0.035,
+        "depth": 8,
+        "l2_leaf_reg": 6.0
+      }
+    }
+  },
+  "experiments": [
+    {
+      "name": "constant_reference",
+      "feature_set": "v1",
+      "model": "constant",
+      "presets": ["starter", "extended"]
+    },
+    {
+      "name": "v1__lgbm_base",
+      "feature_set": "v1",
+      "model": "lgbm_base",
+      "presets": ["starter", "extended"]
+    },
+    {
+      "name": "v1_asof__lgbm_base",
+      "feature_set": "v1_asof",
+      "model": "lgbm_base",
+      "presets": ["starter", "extended"]
+    },
+    {
+      "name": "v1_asof_threat_ball_only__lgbm_base",
+      "feature_set": "v1_asof_threat_ball_only",
+      "model": "lgbm_base",
+      "comparison_experiment": "v1_asof__lgbm_base",
+      "presets": ["starter", "extended"]
+    },
+    {
+      "name": "v1_asof_threat_no_ball__lgbm_base",
+      "feature_set": "v1_asof_threat_no_ball",
+      "model": "lgbm_base",
+      "comparison_experiment": "v1_asof__lgbm_base",
+      "presets": ["starter", "extended"]
+    },
+    {
+      "name": "v1_asof_threat__lgbm_base",
+      "feature_set": "v1_asof_threat",
+      "model": "lgbm_base",
+      "comparison_experiment": "v1_asof__lgbm_base",
+      "presets": ["starter", "extended"]
+    },
+    {
+      "name": "v1_asof_situation__lgbm_base",
+      "feature_set": "v1_asof_situation",
+      "model": "lgbm_base",
+      "presets": ["starter", "extended"]
+    },
+    {
+      "name": "v1_all__lgbm_base",
+      "feature_set": "v1_all_rowwise",
+      "model": "lgbm_base",
+      "presets": ["starter", "extended"]
+    },
+    {
+      "name": "v1_all__lgbm_regularized",
+      "feature_set": "v1_all_rowwise",
+      "model": "lgbm_regularized",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_all__lgbm_wide",
+      "feature_set": "v1_all_rowwise",
+      "model": "lgbm_wide",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_all_no_ids__lgbm_base",
+      "feature_set": "v1_all_no_ids",
+      "model": "lgbm_base",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_all_no_trackman__lgbm_base",
+      "feature_set": "v1_all_no_trackman",
+      "model": "lgbm_base",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_all__logistic",
+      "feature_set": "v1_all_rowwise",
+      "model": "logistic",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_asof__logistic",
+      "feature_set": "v1_asof",
+      "model": "logistic",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_asof_threat__logistic",
+      "feature_set": "v1_asof_threat",
+      "model": "logistic",
+      "comparison_experiment": "v1_asof__logistic",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_all__hist_gbdt",
+      "feature_set": "v1_all_rowwise",
+      "model": "hist_gbdt",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_asof__hist_gbdt",
+      "feature_set": "v1_asof",
+      "model": "hist_gbdt",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_asof_threat__hist_gbdt",
+      "feature_set": "v1_asof_threat",
+      "model": "hist_gbdt",
+      "comparison_experiment": "v1_asof__hist_gbdt",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_all__extra_trees",
+      "feature_set": "v1_all_rowwise",
+      "model": "extra_trees",
+      "presets": ["extended"]
+    },
+    {
+      "name": "v1_all__xgboost",
+      "feature_set": "v1_all_rowwise",
+      "model": "xgboost",
+      "presets": []
+    },
+    {
+      "name": "v1_all__catboost",
+      "feature_set": "v1_all_rowwise",
+      "model": "catboost",
+      "presets": []
+    },
+    {
+      "name": "raw_minimal__lgbm_four",
+      "feature_set": "raw_minimal",
+      "model": "lgbm_four",
+      "presets": ["four_models"]
+    },
+    {
+      "name": "v1_all__lgbm_four",
+      "feature_set": "v1_all_rowwise",
+      "model": "lgbm_four",
+      "preprocessing_comparison_experiment": "raw_minimal__lgbm_four",
+      "presets": ["four_models"]
+    },
+    {
+      "name": "v1_all_threat__lgbm_four",
+      "feature_set": "v1_all_threat",
+      "model": "lgbm_four",
+      "comparison_experiment": "v1_all__lgbm_four",
+      "presets": ["four_models"]
+    },
+    {
+      "name": "raw_minimal__hist_gbdt_four",
+      "feature_set": "raw_minimal",
+      "model": "hist_gbdt_four",
+      "presets": ["four_models", "hist_compare"]
+    },
+    {
+      "name": "v1_all__hist_gbdt_four",
+      "feature_set": "v1_all_rowwise",
+      "model": "hist_gbdt_four",
+      "preprocessing_comparison_experiment": "raw_minimal__hist_gbdt_four",
+      "presets": ["four_models", "hist_compare"]
+    },
+    {
+      "name": "v1_all_threat__hist_gbdt_four",
+      "feature_set": "v1_all_threat",
+      "model": "hist_gbdt_four",
+      "comparison_experiment": "v1_all__hist_gbdt_four",
+      "presets": ["four_models", "hist_compare"]
+    },
+    {
+      "name": "raw_minimal__xgboost_four",
+      "feature_set": "raw_minimal",
+      "model": "xgboost_four",
+      "presets": ["four_models"]
+    },
+    {
+      "name": "v1_all__xgboost_four",
+      "feature_set": "v1_all_rowwise",
+      "model": "xgboost_four",
+      "preprocessing_comparison_experiment": "raw_minimal__xgboost_four",
+      "presets": ["four_models"]
+    },
+    {
+      "name": "v1_all_threat__xgboost_four",
+      "feature_set": "v1_all_threat",
+      "model": "xgboost_four",
+      "comparison_experiment": "v1_all__xgboost_four",
+      "presets": ["four_models"]
+    },
+    {
+      "name": "raw_minimal__catboost_four",
+      "feature_set": "raw_minimal",
+      "model": "catboost_four",
+      "presets": ["four_models"]
+    },
+    {
+      "name": "v1_all__catboost_four",
+      "feature_set": "v1_all_rowwise",
+      "model": "catboost_four",
+      "preprocessing_comparison_experiment": "raw_minimal__catboost_four",
+      "presets": ["four_models"]
+    },
+    {
+      "name": "v1_all_threat__catboost_four",
+      "feature_set": "v1_all_threat",
+      "model": "catboost_four",
+      "comparison_experiment": "v1_all__catboost_four",
+      "presets": ["four_models"]
+    }
+  ]
+}
