@@ -22,7 +22,6 @@ from src.first_model_features import (
     ASOF_TREND_FEATURES,
     RAW_CATEGORICAL_FEATURES,
     RAW_NUMERIC_FEATURES,
-    TARGET,
     aggregate_trackman,
     assemble_raw_features,
     build_trackman_features,
@@ -33,7 +32,6 @@ from src.trackman_sabermetrics import (
     build_trackman_catalog,
     group_trackman_features,
 )
-
 
 LOGGER = logging.getLogger(__name__)
 BASE_BLOCKS = ["batter_threat_interactions", "asof_trend"]

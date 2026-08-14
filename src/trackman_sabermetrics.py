@@ -4,7 +4,6 @@ from collections.abc import Iterable
 
 import pandas as pd
 
-
 GROUP_ORDER = [
     "release_repeatability",
     "velocity_retention",

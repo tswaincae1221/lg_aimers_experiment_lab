@@ -1,13 +1,13 @@
 import numpy as np
 import pandas as pd
 
+from src.experiment_features import BATTER_THREAT_INTERACTION_FEATURES
 from src.first_model_features import (
     ASOF_TREND_FEATURES,
     RAW_CATEGORICAL_FEATURES,
     RAW_NUMERIC_FEATURES,
 )
 from src.lofo_trackman_runner import _feature_catalog, _write_rankings
-from src.experiment_features import BATTER_THREAT_INTERACTION_FEATURES
 
 
 def test_requested_feature_catalog_has_47_plus_6_plus_13() -> None:
