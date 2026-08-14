@@ -64,3 +64,37 @@ def test_four_model_preset_selects_only_declared_matrix() -> None:
         "v1_all_rowwise",
         "v1_all_threat",
     }
+
+
+def test_team_next_preset_selects_corrected_followups() -> None:
+    config = load_config("config/experiments.json")
+    selected = select_experiments(config, "team_next", None)
+    assert len(selected) == 7
+    assert {item["model"] for item in selected} == {
+        "hist_gbdt_fixed350",
+        "xgboost_fixed25",
+        "xgboost_fixed50",
+        "xgboost_fixed100",
+        "xgboost_fixed200",
+    }
+
+
+def test_compact_preset_selects_hgb_and_catboost_for_all_five_stages() -> None:
+    config = load_config("config/experiments.json")
+    selected = select_experiments(config, "compact", None)
+    assert [item["name"] for item in selected] == [
+        "compact_a_full__hist_gbdt_fixed350",
+        "compact_b_no_ids__hist_gbdt_fixed350",
+        "compact_c_no_trackman__hist_gbdt_fixed350",
+        "compact_d_core__hist_gbdt_fixed350",
+        "compact_e_core_trackman__hist_gbdt_fixed350",
+        "compact_a_full__catboost",
+        "compact_b_no_ids__catboost",
+        "compact_c_no_trackman__catboost",
+        "compact_d_core__catboost",
+        "compact_e_core_trackman__catboost",
+    ]
+    assert {item["model"] for item in selected} == {
+        "hist_gbdt_fixed350",
+        "catboost_four",
+    }

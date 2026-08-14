@@ -6,8 +6,11 @@ from fnmatch import fnmatch
 import numpy as np
 import pandas as pd
 
+from src.compact_feature_profiles import (
+    FEATURE_PROFILE_DESCRIPTIONS,
+    resolve_feature_profile,
+)
 from src.first_model_features import ASOF_TREND_FEATURES, build_asof_trend_features
-
 
 FeatureBuilder = Callable[[pd.DataFrame], tuple[pd.DataFrame, list[str]]]
 
@@ -290,7 +293,7 @@ def apply_feature_set(
     base_categorical: list[str],
     feature_set: dict,
 ) -> tuple[pd.DataFrame, list[str], dict]:
-    """Add named row-wise blocks and apply optional glob-based ablations."""
+    """Add row-wise blocks, apply ablations, and optionally keep a strict profile."""
     features = base_features.copy(deep=False)
     categorical = list(base_categorical)
     added: list[str] = []
@@ -316,16 +319,41 @@ def apply_feature_set(
     ]
     if dropped:
         features = features.drop(columns=dropped)
+
+    keep_profile = feature_set.get("keep_profile")
+    requested_keep = resolve_feature_profile(keep_profile) if keep_profile else []
+    missing_requested = [
+        column for column in requested_keep if column not in features.columns
+    ]
+    if missing_requested:
+        raise ValueError(
+            f"Feature profile '{keep_profile}' requires missing columns: "
+            f"{missing_requested}"
+        )
+    selection_dropped = []
+    if requested_keep:
+        requested_set = set(requested_keep)
+        selection_dropped = [
+            column for column in features.columns if column not in requested_set
+        ]
+        features = features.loc[:, [
+            column for column in features.columns if column in requested_set
+        ]]
     categorical = [column for column in categorical if column in features.columns]
 
     report = {
         "base_feature_count": int(base_features.shape[1]),
         "added_feature_count": len(added),
         "dropped_feature_count": len(dropped),
+        "selection_dropped_feature_count": len(selection_dropped),
         "final_feature_count": int(features.shape[1]),
         "blocks": list(feature_set.get("blocks", [])),
+        "keep_profile": keep_profile,
+        "keep_profile_description": FEATURE_PROFILE_DESCRIPTIONS.get(keep_profile),
         "added_features": added,
         "dropped_features": dropped,
+        "selection_dropped_features": selection_dropped,
+        "selected_features": features.columns.tolist(),
         "categorical_features": categorical,
     }
     return features, categorical, report

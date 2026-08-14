@@ -12,6 +12,7 @@ from src.experiment_reporting import (
 def test_metrics_and_baseline_delta_direction() -> None:
     metrics = compute_metrics(np.array([0, 0, 1, 1]), np.array([0.1, 0.4, 0.6, 0.9]))
     assert metrics["brier"] < 0.25
+    assert 0 < metrics["brier_skill_score"] < 100
     assert 0 <= metrics["ece_10bin"] <= 1
 
     board = pd.DataFrame(

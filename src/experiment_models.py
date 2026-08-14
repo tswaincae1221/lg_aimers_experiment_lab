@@ -354,7 +354,7 @@ def fit_validation_model(
             final_defaults["n_estimators"] = best_iteration
             model = xgb.XGBClassifier(**final_defaults)
             model.fit(x_train_array, y_train.astype("int8"), verbose=False)
-        else:
+        elif early_stopping > 0:
             model = xgb.XGBClassifier(**defaults, early_stopping_rounds=early_stopping)
             model.fit(
                 x_train_array,
@@ -365,6 +365,12 @@ def fit_validation_model(
             best_iteration = int(
                 getattr(model, "best_iteration", defaults["n_estimators"])
             )
+        else:
+            # Fixed-iteration path used by the team comparison.  It deliberately
+            # avoids using the 2024 holdout for early stopping.
+            model = xgb.XGBClassifier(**defaults)
+            model.fit(x_train_array, y_train.astype("int8"), verbose=False)
+            best_iteration = int(defaults["n_estimators"])
         probability = model.predict_proba(x_valid_array)[:, 1]
         importance = _generic_importance(
             x_train.columns.tolist(), model.feature_importances_, "gain"
@@ -390,6 +396,7 @@ def fit_validation_model(
             "allow_writing_files": False,
         }
         defaults.update(params)
+        early_stopping_rounds = int(model_config.get("early_stopping_rounds", 100))
         if refit_after_tuning:
             tune_train, tune_y, tune_valid, tune_valid_y = tuning_data
             tune_train_copy = tune_train.copy()
@@ -411,9 +418,7 @@ def fit_validation_model(
                 tune_y.astype("int8"),
                 cat_features=tune_cat_indices,
                 eval_set=(tune_valid_copy, tune_valid_y.astype("int8")),
-                early_stopping_rounds=int(
-                    model_config.get("early_stopping_rounds", 100)
-                ),
+                early_stopping_rounds=early_stopping_rounds,
             )
             tuned_iteration = int(tune_model.get_best_iteration())
             best_iteration = (
@@ -459,16 +464,24 @@ def fit_validation_model(
                 for column in categorical_features
             ]
             model = CatBoostClassifier(**defaults)
-            model.fit(
-                train_copy,
-                y_train.astype("int8"),
-                cat_features=cat_indices,
-                eval_set=(valid_copy, y_valid.astype("int8")),
-                early_stopping_rounds=int(
-                    model_config.get("early_stopping_rounds", 100)
-                ),
-            )
-            best_iteration = int(model.get_best_iteration())
+            if early_stopping_rounds > 0:
+                model.fit(
+                    train_copy,
+                    y_train.astype("int8"),
+                    cat_features=cat_indices,
+                    eval_set=(valid_copy, y_valid.astype("int8")),
+                    early_stopping_rounds=early_stopping_rounds,
+                )
+                best_iteration = int(model.get_best_iteration())
+            else:
+                # Fixed-iteration path for fair LOFO/add-back comparisons.  The
+                # 2024 holdout is never used to choose the iteration count.
+                model.fit(
+                    train_copy,
+                    y_train.astype("int8"),
+                    cat_features=cat_indices,
+                )
+                best_iteration = int(defaults["iterations"])
         probability = model.predict_proba(valid_copy)[:, 1]
         importance = _generic_importance(
             x_train.columns.tolist(), model.feature_importances_, "prediction_values_change"
