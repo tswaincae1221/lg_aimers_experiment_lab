@@ -31,11 +31,10 @@ from src.first_model_features import (
     ID_COLUMN,
     TARGET,
     aggregate_trackman,
-    assemble_raw_features,
     assemble_features,
+    assemble_raw_features,
     load_mapping,
 )
-
 
 LOGGER = logging.getLogger(__name__)
 

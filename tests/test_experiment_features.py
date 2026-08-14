@@ -1,6 +1,10 @@
 import numpy as np
 import pandas as pd
 
+from src.compact_feature_profiles import (
+    COMPACT_CORE_COLUMNS,
+    COMPACT_TRACKMAN_COLUMNS,
+)
 from src.experiment_features import (
     ASOF_TREND_FEATURES,
     BATTER_THREAT_INTERACTION_FEATURES,
@@ -8,10 +12,6 @@ from src.experiment_features import (
     RELIABILITY_FEATURES,
     SITUATION_FEATURES,
     apply_feature_set,
-)
-from src.compact_feature_profiles import (
-    COMPACT_CORE_COLUMNS,
-    COMPACT_TRACKMAN_COLUMNS,
 )
 
 

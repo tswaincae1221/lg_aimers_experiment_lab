@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pandas as pd
 
-
 METRICS = [
     "brier",
     "brier_skill_score",

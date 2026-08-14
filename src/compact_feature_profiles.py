@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-
 # Compact profiles are intentionally explicit. A changed upstream feature name
 # should fail loudly instead of silently changing the experiment population.
 COMPACT_CORE_GROUPS: dict[str, list[str]] = {

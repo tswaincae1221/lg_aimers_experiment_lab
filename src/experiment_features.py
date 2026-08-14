@@ -12,7 +12,6 @@ from src.compact_feature_profiles import (
 )
 from src.first_model_features import ASOF_TREND_FEATURES, build_asof_trend_features
 
-
 FeatureBuilder = Callable[[pd.DataFrame], tuple[pd.DataFrame, list[str]]]
 
 
