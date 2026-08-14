@@ -354,7 +354,7 @@ def fit_validation_model(
             final_defaults["n_estimators"] = best_iteration
             model = xgb.XGBClassifier(**final_defaults)
             model.fit(x_train_array, y_train.astype("int8"), verbose=False)
-        else:
+        elif early_stopping > 0:
             model = xgb.XGBClassifier(**defaults, early_stopping_rounds=early_stopping)
             model.fit(
                 x_train_array,
@@ -365,6 +365,12 @@ def fit_validation_model(
             best_iteration = int(
                 getattr(model, "best_iteration", defaults["n_estimators"])
             )
+        else:
+            # Fixed-iteration path used by the team comparison.  It deliberately
+            # avoids using the 2024 holdout for early stopping.
+            model = xgb.XGBClassifier(**defaults)
+            model.fit(x_train_array, y_train.astype("int8"), verbose=False)
+            best_iteration = int(defaults["n_estimators"])
         probability = model.predict_proba(x_valid_array)[:, 1]
         importance = _generic_importance(
             x_train.columns.tolist(), model.feature_importances_, "gain"

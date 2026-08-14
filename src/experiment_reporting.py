@@ -58,7 +58,9 @@ def compute_metrics(
         "prediction_mean": float(probability.mean()),
         "prediction_std": float(probability.std()),
         "brier": brier,
-        "brier_skill_score": float(100_000.0 * (1.0 - brier / reference))
+        # Standard Brier Skill Score expressed as a percentage.
+        # Previous versions multiplied by 100,000, which made 0.618% appear as 618.
+        "brier_skill_score": float(100.0 * (1.0 - brier / reference))
         if reference
         else 0.0,
         "logloss": float(log_loss(truth, probability, labels=[0, 1])),

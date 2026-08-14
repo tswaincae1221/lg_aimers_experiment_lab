@@ -1,5 +1,10 @@
 # LG Aimers 피처·모델 자동 실험실
 
+> 팀 공유용 v1.5에서는 먼저 [`README_TEAM.md`](README_TEAM.md)와
+> [`docs/TEAM_MODELING_REPORT.md`](docs/TEAM_MODELING_REPORT.md)를 읽으세요.
+> 과소학습 문제를 보완한 후속 실험은 `PRESET="team_next"`로 실행합니다.
+> 핵심 정보만 남기는 축소 비교는 `PRESET="compact"`로 실행합니다.
+
 기존 V1 155개 피처와 V1.1 `asof` 추세 실험을 확장한 설정 기반 실험
 프레임워크입니다. 팀 공통 비교 기준은 항상 **2019~2023 학습 → 2024 검증**으로
 고정합니다.
@@ -15,6 +20,7 @@
 - 완료 조합 자동 건너뛰기와 중단 후 이어서 실행
 - 공식 원본 최소처리 대 전체 피처 엔지니어링의 전·후 비교
 - HistGradientBoosting·XGBoost·CatBoost·LightGBM 공정 비교 프리셋
+- 전체 194개에서 핵심 88개까지 줄이는 Compact A–E HGB·CatBoost 비교
 
 ## 가장 쉬운 실행
 
@@ -87,6 +93,13 @@ V1 피처만 사용합니다. 현재 투구의 정답은 사용하지 않습니�
 행렬로 비교합니다. `starter`는 피처 블록의 효과를 같은 LightGBM으로 비교하고,
 `extended`는 기존 비교 모델과 제거 실험까지 넓히며, `all`은 모든 실험을 포함합니다.
 
+## 피처 축소 비교
+
+`PRESET="compact"`는 각 모델 안에서 전체 → 선수 ID 제거 → Trackman 제거 → 핵심
+88개 → 핵심 88개+대표 Trackman 19개의 다섯 단계를 비교합니다. full 결과 최고는
+HGB C 137개 피처의 Brier `0.24817527`입니다. 선정 원칙과 전체 결과는
+[`docs/COMPACT_FEATURE_EXPERIMENT.md`](docs/COMPACT_FEATURE_EXPERIMENT.md)를 참고하세요.
+
 ## 직접 실행
 
 ```bash
@@ -128,6 +141,19 @@ python -m src.experiment_runner \
 ```bash
 python -m src.experiment_runner ... \
   --only v1__lgbm_base v1_asof__lgbm_base
+```
+
+축소 실험은 다음처럼 실행합니다.
+
+```bash
+python -m src.experiment_runner \
+  --config config/experiments.json \
+  --train data/train.csv \
+  --test data/test.csv \
+  --trackman data/trackman_history.csv \
+  --mapping resources/pitcher_trackman_mapping.csv \
+  --output-dir results/compact/full \
+  --mode full --preset compact --validation-season 2024 --n-jobs 4
 ```
 
 ## 실험 추가

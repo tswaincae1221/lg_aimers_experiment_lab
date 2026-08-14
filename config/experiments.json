@@ -91,6 +91,22 @@
       "description": "전체 row-wise 피처에서 Trackman 계열 제거",
       "blocks": ["asof_trend", "situation", "pitchmix", "reliability"],
       "drop_patterns": ["tm_*", "trackman_*"]
+    },
+    "compact_core": {
+      "description": "ID·팀 ID·Trackman·중복 파생치를 제거한 핵심 88개",
+      "input_view": "v1",
+      "preprocessing_stage": "compact_core",
+      "blocks": ["asof_trend", "situation", "pitchmix", "reliability"],
+      "drop_patterns": [],
+      "keep_profile": "compact_core"
+    },
+    "compact_core_trackman": {
+      "description": "핵심 88개 + 대표 Trackman 19개",
+      "input_view": "v1",
+      "preprocessing_stage": "compact_core_trackman",
+      "blocks": ["asof_trend", "situation", "pitchmix", "reliability"],
+      "drop_patterns": [],
+      "keep_profile": "compact_core_trackman"
     }
   },
   "models": {
@@ -273,6 +289,87 @@
         "learning_rate": 0.035,
         "depth": 8,
         "l2_leaf_reg": 6.0
+      }
+    },
+    "hist_gbdt_fixed350": {
+      "type": "hist_gbdt",
+      "family": "HistGradientBoosting",
+      "description": "검증 누수 없이 350회로 고정한 최종 HGB 후보",
+      "params": {
+        "learning_rate": 0.06,
+        "max_iter": 350,
+        "max_leaf_nodes": 31,
+        "min_samples_leaf": 250,
+        "l2_regularization": 3.0,
+        "early_stopping": false
+      }
+    },
+    "xgboost_fixed25": {
+      "type": "xgboost",
+      "family": "XGBoost",
+      "description": "2024 holdout을 보지 않고 25회로 고정한 XGBoost",
+      "params": {
+        "n_estimators": 25,
+        "early_stopping_rounds": 0,
+        "learning_rate": 0.03,
+        "max_depth": 7,
+        "min_child_weight": 60,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.2,
+        "reg_lambda": 4.0,
+        "eval_metric": "logloss"
+      }
+    },
+    "xgboost_fixed50": {
+      "type": "xgboost",
+      "family": "XGBoost",
+      "description": "2024 holdout을 보지 않고 50회로 고정한 XGBoost",
+      "params": {
+        "n_estimators": 50,
+        "early_stopping_rounds": 0,
+        "learning_rate": 0.03,
+        "max_depth": 7,
+        "min_child_weight": 60,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.2,
+        "reg_lambda": 4.0,
+        "eval_metric": "logloss"
+      }
+    },
+    "xgboost_fixed100": {
+      "type": "xgboost",
+      "family": "XGBoost",
+      "description": "2024 holdout을 보지 않고 100회로 고정한 XGBoost",
+      "params": {
+        "n_estimators": 100,
+        "early_stopping_rounds": 0,
+        "learning_rate": 0.03,
+        "max_depth": 7,
+        "min_child_weight": 60,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.2,
+        "reg_lambda": 4.0,
+        "eval_metric": "logloss"
+      }
+    },
+    "xgboost_fixed200": {
+      "type": "xgboost",
+      "family": "XGBoost",
+      "description": "2024 holdout을 보지 않고 200회로 고정한 XGBoost",
+      "params": {
+        "n_estimators": 200,
+        "early_stopping_rounds": 0,
+        "learning_rate": 0.03,
+        "max_depth": 7,
+        "min_child_weight": 60,
+        "subsample": 0.85,
+        "colsample_bytree": 0.85,
+        "reg_alpha": 0.2,
+        "reg_lambda": 4.0,
+        "eval_metric": "logloss"
       }
     }
   },
@@ -487,6 +584,121 @@
       "model": "catboost_four",
       "comparison_experiment": "v1_all__catboost_four",
       "presets": ["four_models"]
+    },
+    {
+      "name": "v1_all__hist_gbdt_fixed350",
+      "feature_set": "v1_all_rowwise",
+      "model": "hist_gbdt_fixed350",
+      "presets": ["team_next"]
+    },
+    {
+      "name": "v1_all_threat__hist_gbdt_fixed350",
+      "feature_set": "v1_all_threat",
+      "model": "hist_gbdt_fixed350",
+      "comparison_experiment": "v1_all__hist_gbdt_fixed350",
+      "presets": ["team_next"]
+    },
+    {
+      "name": "v1_all_no_ids__hist_gbdt_fixed350",
+      "feature_set": "v1_all_no_ids",
+      "model": "hist_gbdt_fixed350",
+      "comparison_experiment": "v1_all__hist_gbdt_fixed350",
+      "presets": ["team_next"]
+    },
+    {
+      "name": "v1_all_threat__xgboost_fixed25",
+      "feature_set": "v1_all_threat",
+      "model": "xgboost_fixed25",
+      "presets": ["team_next"]
+    },
+    {
+      "name": "v1_all_threat__xgboost_fixed50",
+      "feature_set": "v1_all_threat",
+      "model": "xgboost_fixed50",
+      "comparison_experiment": "v1_all_threat__xgboost_fixed25",
+      "presets": ["team_next"]
+    },
+    {
+      "name": "v1_all_threat__xgboost_fixed100",
+      "feature_set": "v1_all_threat",
+      "model": "xgboost_fixed100",
+      "comparison_experiment": "v1_all_threat__xgboost_fixed25",
+      "presets": ["team_next"]
+    },
+    {
+      "name": "v1_all_threat__xgboost_fixed200",
+      "feature_set": "v1_all_threat",
+      "model": "xgboost_fixed200",
+      "comparison_experiment": "v1_all_threat__xgboost_fixed25",
+      "presets": ["team_next"]
+    },
+    {
+      "name": "compact_a_full__hist_gbdt_fixed350",
+      "feature_set": "v1_all_rowwise",
+      "model": "hist_gbdt_fixed350",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_b_no_ids__hist_gbdt_fixed350",
+      "feature_set": "v1_all_no_ids",
+      "model": "hist_gbdt_fixed350",
+      "comparison_experiment": "compact_a_full__hist_gbdt_fixed350",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_c_no_trackman__hist_gbdt_fixed350",
+      "feature_set": "v1_all_no_trackman",
+      "model": "hist_gbdt_fixed350",
+      "comparison_experiment": "compact_a_full__hist_gbdt_fixed350",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_d_core__hist_gbdt_fixed350",
+      "feature_set": "compact_core",
+      "model": "hist_gbdt_fixed350",
+      "comparison_experiment": "compact_a_full__hist_gbdt_fixed350",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_e_core_trackman__hist_gbdt_fixed350",
+      "feature_set": "compact_core_trackman",
+      "model": "hist_gbdt_fixed350",
+      "comparison_experiment": "compact_a_full__hist_gbdt_fixed350",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_a_full__catboost",
+      "feature_set": "v1_all_rowwise",
+      "model": "catboost_four",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_b_no_ids__catboost",
+      "feature_set": "v1_all_no_ids",
+      "model": "catboost_four",
+      "comparison_experiment": "compact_a_full__catboost",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_c_no_trackman__catboost",
+      "feature_set": "v1_all_no_trackman",
+      "model": "catboost_four",
+      "comparison_experiment": "compact_a_full__catboost",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_d_core__catboost",
+      "feature_set": "compact_core",
+      "model": "catboost_four",
+      "comparison_experiment": "compact_a_full__catboost",
+      "presets": ["compact"]
+    },
+    {
+      "name": "compact_e_core_trackman__catboost",
+      "feature_set": "compact_core_trackman",
+      "model": "catboost_four",
+      "comparison_experiment": "compact_a_full__catboost",
+      "presets": ["compact"]
     }
   ]
 }

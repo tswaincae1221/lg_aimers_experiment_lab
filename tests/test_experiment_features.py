@@ -9,6 +9,10 @@ from src.experiment_features import (
     SITUATION_FEATURES,
     apply_feature_set,
 )
+from src.compact_feature_profiles import (
+    COMPACT_CORE_COLUMNS,
+    COMPACT_TRACKMAN_COLUMNS,
+)
 
 
 def make_base() -> pd.DataFrame:
@@ -136,3 +140,55 @@ def test_batter_threat_interactions_preserve_missing_and_reject_invalid_rates() 
 
     assert features.loc[0, "threat_x_ball"] != features.loc[0, "threat_x_ball"]
     assert features.loc[1, "hand_match"] != features.loc[1, "hand_match"]
+
+
+def test_compact_profiles_are_explicit_and_preserve_source_order() -> None:
+    base = make_base()
+    for column in COMPACT_CORE_COLUMNS:
+        if column not in base:
+            base[column] = 0.0
+
+    features, categorical, report = apply_feature_set(
+        base,
+        ["pitcher_id", "batter_id", "pitcher_hand", "batter_hand"],
+        {"blocks": [], "keep_profile": "compact_core"},
+    )
+
+    assert features.columns.tolist() == [
+        column for column in base.columns if column in COMPACT_CORE_COLUMNS
+    ]
+    assert "pitcher_id" not in features
+    assert "batter_id" not in features
+    assert "tm_career_pitch_n" not in features
+    assert categorical == ["pitcher_hand", "batter_hand"]
+    assert report["final_feature_count"] == len(COMPACT_CORE_COLUMNS)
+    assert report["keep_profile"] == "compact_core"
+
+
+def test_compact_trackman_profile_keeps_only_curated_trackman_columns() -> None:
+    base = make_base()
+    for column in [*COMPACT_CORE_COLUMNS, *COMPACT_TRACKMAN_COLUMNS]:
+        if column not in base:
+            base[column] = 0.0
+    base["tm_unselected_noise"] = 1.0
+
+    features, _, report = apply_feature_set(
+        base,
+        ["pitcher_hand", "batter_hand"],
+        {"blocks": [], "keep_profile": "compact_core_trackman"},
+    )
+
+    assert features.shape[1] == len(COMPACT_CORE_COLUMNS) + len(COMPACT_TRACKMAN_COLUMNS)
+    assert set(COMPACT_TRACKMAN_COLUMNS).issubset(features.columns)
+    assert "tm_unselected_noise" not in features
+    assert report["selection_dropped_feature_count"] > 0
+
+
+def test_compact_profile_fails_loudly_when_upstream_column_is_missing() -> None:
+    base = make_base()
+    try:
+        apply_feature_set(base, [], {"blocks": [], "keep_profile": "compact_core"})
+    except ValueError as exc:
+        assert "requires missing columns" in str(exc)
+    else:
+        raise AssertionError("Incomplete compact profile should fail")

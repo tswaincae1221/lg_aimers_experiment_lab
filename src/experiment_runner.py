@@ -53,11 +53,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mode", choices=["quick", "full"], default="quick")
     parser.add_argument(
         "--preset",
-        choices=["starter", "hist_compare", "four_models", "extended", "all"],
+        choices=[
+            "starter",
+            "hist_compare",
+            "four_models",
+            "team_next",
+            "compact",
+            "extended",
+            "all",
+        ],
         default="starter",
         help=(
             "Experiment group. 'hist_compare' runs only HistGradientBoosting; "
-            "'four_models' compares HistGB, XGBoost, CatBoost, and LightGBM."
+            "'four_models' compares HistGB, XGBoost, CatBoost, and LightGBM; "
+            "'team_next' runs the corrected HGB/XGBoost follow-up matrix; "
+            "'compact' compares five feature-reduction stages with HGB and CatBoost."
         ),
     )
     parser.add_argument("--only", nargs="+", help="Run only these experiment names")
@@ -497,11 +507,14 @@ def run(args: argparse.Namespace) -> pd.DataFrame:
                     "prediction": model_result.probability,
                 }
             )
+            prediction_path = run_dir / "validation_predictions.csv.gz"
+            temporary_prediction_path = prediction_path.with_suffix(".csv.gz.tmp")
             predictions.to_csv(
-                run_dir / "validation_predictions.csv.gz",
+                temporary_prediction_path,
                 index=False,
-                compression="gzip",
+                compression={"method": "gzip", "mtime": 0},
             )
+            temporary_prediction_path.replace(prediction_path)
             write_run_artifacts(
                 run_dir,
                 bundle.target.iloc[valid_rows],

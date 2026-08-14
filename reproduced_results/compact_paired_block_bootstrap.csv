@@ -1,0 +1,9 @@
+model_family,candidate,baseline,brier_delta,block_bootstrap_ci_low,block_bootstrap_ci_high,n_rows,block_rows,n_bootstrap
+HistGradientBoosting,compact_b_no_ids__hist_gbdt_fixed350,compact_a_full__hist_gbdt_fixed350,-0.0000273183,-0.000108,0.000040,253507,500,10000
+HistGradientBoosting,compact_c_no_trackman__hist_gbdt_fixed350,compact_a_full__hist_gbdt_fixed350,-0.0000368127,-0.000117,0.000050,253507,500,10000
+HistGradientBoosting,compact_d_core__hist_gbdt_fixed350,compact_a_full__hist_gbdt_fixed350,0.0000842334,-0.000024,0.000191,253507,500,10000
+HistGradientBoosting,compact_e_core_trackman__hist_gbdt_fixed350,compact_a_full__hist_gbdt_fixed350,0.0000783453,-0.000032,0.000161,253507,500,10000
+CatBoost,compact_b_no_ids__catboost,compact_a_full__catboost,0.0000025477,-0.000003,0.000008,253507,500,10000
+CatBoost,compact_c_no_trackman__catboost,compact_a_full__catboost,-0.0000133755,-0.000021,-0.000008,253507,500,10000
+CatBoost,compact_d_core__catboost,compact_a_full__catboost,-0.0000753430,-0.000082,-0.000063,253507,500,10000
+CatBoost,compact_e_core_trackman__catboost,compact_a_full__catboost,-0.0001313157,-0.000143,-0.000112,253507,500,10000
