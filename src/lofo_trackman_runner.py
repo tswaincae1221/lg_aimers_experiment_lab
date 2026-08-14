@@ -323,7 +323,21 @@ def _write_rankings(
     current = _latest_success(history, run_signature)
     if current.empty:
         return
-    baselines = current.loc[current["experiment_type"] == "baseline", ["model", "brier"]]
+    baseline_columns = [
+        "model",
+        "brier",
+        "auc",
+        "ece_10bin",
+        "logloss",
+        "elapsed_seconds",
+        "best_iteration",
+        "train_n",
+        "valid_n",
+    ]
+    baseline_columns = [column for column in baseline_columns if column in current.columns]
+    baselines = current.loc[
+        current["experiment_type"] == "baseline", baseline_columns
+    ]
     baseline_map = baselines.drop_duplicates("model", keep="last").set_index("model")["brier"]
     _atomic_to_csv(baselines.sort_values("brier"), output_dir / "baseline_scores.csv")
 

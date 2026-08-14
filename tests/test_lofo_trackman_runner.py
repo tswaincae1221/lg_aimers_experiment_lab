@@ -37,6 +37,9 @@ def test_lofo_and_addback_directions_are_written_correctly(tmp_path) -> None:
                 "experiment_type": "baseline",
                 "item": "base_66",
                 "brier": 0.200,
+                "auc": 0.55,
+                "ece_10bin": 0.01,
+                "elapsed_seconds": 10.0,
             },
             {
                 "run_signature": "sig",
@@ -73,5 +76,9 @@ def test_lofo_and_addback_directions_are_written_correctly(tmp_path) -> None:
 
     lofo = pd.read_csv(tmp_path / "lofo_importance_by_model.csv")
     addback = pd.read_csv(tmp_path / "trackman_addback_by_model.csv")
+    baseline = pd.read_csv(tmp_path / "baseline_scores.csv")
     assert np.isclose(lofo.loc[0, "delta_brier"], 0.005)
     assert np.isclose(addback.loc[0, "brier_improvement"], 0.002)
+    assert {"model", "brier", "auc", "ece_10bin", "elapsed_seconds"}.issubset(
+        baseline.columns
+    )
