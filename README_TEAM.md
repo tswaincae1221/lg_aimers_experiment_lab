@@ -8,6 +8,8 @@
 2. `reproduced_results/verified_results.csv`: 실제 실행으로 확인된 핵심 결과
 3. `config/experiments.json`: 피처·모델·실험 정의
 4. `notebooks/run_experiment_lab_colab.ipynb`: Colab 실행 노트북
+5. `docs/LOFO_TRACKMAN_IMPORTANCE.md`: 66개 LOFO와 Trackman 중요도 실험
+6. `notebooks/run_lofo_trackman_colab.ipynb`: Drive 직접 실행·재시작 가능 노트북
 
 ## 핵심 결론
 

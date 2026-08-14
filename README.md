@@ -4,6 +4,9 @@
 > [`docs/TEAM_MODELING_REPORT.md`](docs/TEAM_MODELING_REPORT.md)를 읽으세요.
 > 과소학습 문제를 보완한 후속 실험은 `PRESET="team_next"`로 실행합니다.
 > 핵심 정보만 남기는 축소 비교는 `PRESET="compact"`로 실행합니다.
+> **66개 LOFO + Trackman 중요도 분석**은
+> [`notebooks/run_lofo_trackman_colab.ipynb`](notebooks/run_lofo_trackman_colab.ipynb)을
+> 사용합니다.
 
 기존 V1 155개 피처와 V1.1 `asof` 추세 실험을 확장한 설정 기반 실험
 프레임워크입니다. 팀 공통 비교 기준은 항상 **2019~2023 학습 → 2024 검증**으로
@@ -21,6 +24,27 @@
 - 공식 원본 최소처리 대 전체 피처 엔지니어링의 전·후 비교
 - HistGradientBoosting·XGBoost·CatBoost·LightGBM 공정 비교 프리셋
 - 전체 194개에서 핵심 88개까지 줄이는 Compact A–E HGB·CatBoost 비교
+- 기본 47 + 팀원 중요 6 + 추세 13만 사용한 HGB·CatBoost LOFO
+- Trackman 제구 피처의 세이버메트릭 6그룹·개별 add-back 비교
+
+## 66개 LOFO + Trackman 중요도 분석
+
+이번 요청용 실험은 기존 194개 전체 피처 실험과 분리되어 있습니다. Colab에서
+Google Drive를 마운트한 뒤 `aimers_data/train.csv`와
+`aimers_data/trackman_history.csv`를 **Drive에서 직접** 읽습니다. 원본 데이터는
+저장소에 복사하거나 업로드하지 않습니다.
+
+기준선은 공식 기본 47개, 팀원이 제안한 중요 피처 6개, 누수 없는 과거 추세 피처
+13개로 정확히 66개입니다. 각 피처를 하나씩 제거한 Brier 악화량으로 LOFO
+중요도를 계산하고, Trackman은 릴리스 재현성·구속 유지·회전 안정성·무브먼트
+재현성·구종 구성·표본 신뢰도의 여섯 묶음과 개별 피처를 추가해 개선량을
+계산합니다.
+
+- 실행 노트북: `notebooks/run_lofo_trackman_colab.ipynb`
+- 실행 코드: `src/lofo_trackman_runner.py`
+- 분류 코드: `src/trackman_sabermetrics.py`
+- 상세 방법론: `docs/LOFO_TRACKMAN_IMPORTANCE.md`
+- 체크포인트: Drive의 `aimers_data/results/lofo_trackman/{quick|full}`
 
 ## 가장 쉬운 실행
 
