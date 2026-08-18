@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 import pandas as pd
 
 from src.hgb_feature_selection_v2 import (
     EngineeredData,
+    add_season_trend_features,
     build_main_features,
     build_trackman_features,
     frequency_encode,
+    leakage_safe_season_trend_prior,
+    parse_args,
 )
 
 
@@ -168,3 +173,129 @@ def test_frequency_encoding_is_fit_on_training_only() -> None:
     assert np.isclose(encoded.x_train[0, 0], 2 / 3)
     assert encoded.x_valid[0, 0] == 0.0
     assert encoded.x_valid[0, 1] == 2.0
+
+
+def _season_trend_rows() -> pd.DataFrame:
+    rows = []
+    rates = {
+        2019: 0.56,
+        2020: 0.53,
+        2021: 0.53,
+        2022: 0.52,
+        2023: 0.50,
+        2024: 0.10,
+    }
+    for season, rate in rates.items():
+        n = 100
+        ones = int(round(rate * n))
+        for i in range(n):
+            rows.append(
+                {
+                    "season": season,
+                    "control_success": int(i < ones),
+                    "asof_pitcher_success_rate": 0.55,
+                    "asof_pitcher_n": 100,
+                    "asof_batter_success_rate": 0.52,
+                    "asof_batter_n": 80,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def test_season_trend_prior_uses_only_strictly_previous_seasons() -> None:
+    raw = _season_trend_rows()
+    trend_a = leakage_safe_season_trend_prior(raw, raw["season"], min_history_seasons=4)
+
+    changed = raw.copy()
+    changed.loc[changed["season"].eq(2024), "control_success"] = 1
+    trend_b = leakage_safe_season_trend_prior(
+        changed,
+        changed["season"],
+        min_history_seasons=4,
+    )
+
+    for season in (2020, 2021, 2022, 2023, 2024):
+        a = trend_a.loc[raw["season"].eq(season), "season_trend_prior"].iloc[0]
+        b = trend_b.loc[changed["season"].eq(season), "season_trend_prior"].iloc[0]
+        assert np.isclose(a, b)
+
+    prior_2024 = trend_a.loc[raw["season"].eq(2024), "season_trend_prior"].iloc[0]
+    assert 0.47 < prior_2024 < 0.51
+
+
+def test_season_trend_features_replace_shrinkage_prior() -> None:
+    raw = _season_trend_rows()
+    index = raw.index
+    engineered = EngineeredData(
+        features=pd.DataFrame(
+            {
+                "pitcher_success_shrunk": 0.5,
+                "batter_success_shrunk": 0.5,
+            },
+            index=index,
+        ),
+        target=raw["control_success"],
+        row_ids=pd.Series(np.arange(len(raw)), index=index),
+        seasons=raw["season"],
+        blocks={
+            "control_prior": ["pitcher_success_shrunk", "batter_success_shrunk"]
+        },
+        categorical_features=[],
+    )
+    augmented = add_season_trend_features(
+        engineered,
+        raw,
+        shrinkage=50.0,
+        min_history_seasons=4,
+    )
+    assert {
+        "season_trend_prior",
+        "season_trend_slope",
+        "season_trend_history_n",
+    }.issubset(augmented.features.columns)
+    assert augmented.blocks["season_trend"] == [
+        "season_trend_prior",
+        "season_trend_slope",
+        "season_trend_history_n",
+    ]
+    assert not np.allclose(augmented.features["pitcher_success_shrunk"], 0.5)
+
+
+def test_full_mode_forces_350_fixed_iterations(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prog",
+            "--train",
+            "train.csv",
+            "--trackman",
+            "trackman.csv",
+            "--mode",
+            "full",
+            "--max-iter",
+            "7",
+        ],
+    )
+    args = parse_args()
+    assert args.max_iter == 350
+
+
+def test_quick_mode_keeps_small_iteration_cap(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prog",
+            "--train",
+            "train.csv",
+            "--trackman",
+            "trackman.csv",
+            "--mode",
+            "quick",
+            "--max-iter",
+            "350",
+        ],
+    )
+    args = parse_args()
+    assert args.max_iter == 120
