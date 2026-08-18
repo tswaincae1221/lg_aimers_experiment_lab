@@ -11,16 +11,36 @@ import numpy as np
 import pandas as pd
 
 from .common import (
-    ID_COLUMN, TARGET, _atomic_to_csv, _file_signature, _read_csv, _stable_hash,
-    build_main_features, resolve_input_path, sample_by_season,
+    ID_COLUMN,
+    TARGET,
+    _atomic_to_csv,
+    _file_signature,
+    _read_csv,
+    _stable_hash,
+    build_main_features,
+    resolve_input_path,
+    sample_by_season,
 )
-from .trackman import build_trackman_features, load_mapping, load_or_aggregate_trackman, merge_trackman
+from .season_trend import add_season_trend_features
 from .selection import (
-    _feature_catalog, brier, choose_selected_features, fit_subset, frequency_encode,
-    run_block_ablation, run_lofo, run_permutation_importance, score_row, tune_iterations,
+    _feature_catalog,
+    choose_selected_features,
+    fit_subset,
+    frequency_encode,
+    run_block_ablation,
+    run_lofo,
+    run_permutation_importance,
+    score_row,
+)
+from .trackman import (
+    build_trackman_features,
+    load_mapping,
+    load_or_aggregate_trackman,
+    merge_trackman,
 )
 
 LOGGER = logging.getLogger(__name__)
+
 
 def run_pipeline(args: argparse.Namespace) -> None:
     output_dir = Path(args.output_dir)
@@ -30,12 +50,21 @@ def run_pipeline(args: argparse.Namespace) -> None:
     trackman_path = resolve_input_path(args.trackman, "trackman_history.csv")
     mapping_path = Path(args.mapping)
     if not mapping_path.is_file():
-        raise FileNotFoundError(f"Mapping file not found: {mapping_path}. Run from the repository root.")
+        raise FileNotFoundError(
+            f"Mapping file not found: {mapping_path}. Run from the repository root."
+        )
 
     LOGGER.info("Reading train: %s", train_path)
     train = _read_csv(train_path)
     train = sample_by_season(train, args.max_rows_per_season, args.seed)
+
     main = build_main_features(train, shrinkage=args.shrinkage)
+    main = add_season_trend_features(
+        main,
+        train,
+        shrinkage=args.shrinkage,
+        min_history_seasons=args.season_trend_min_history,
+    )
 
     LOGGER.info("Reading mapping: %s", mapping_path)
     mapping = load_mapping(mapping_path, tuple(args.accepted_mapping_grades))
@@ -60,7 +89,6 @@ def run_pipeline(args: argparse.Namespace) -> None:
     )
     engineered = merge_trackman(main, trackman_features, tm_blocks, tm_categorical)
 
-    # Remove duplicate perfect-information column if both official counts are identical in this data.
     if "asof_pitcher_pitchmix_n" in engineered.features.columns:
         engineered.features.drop(columns=["asof_pitcher_pitchmix_n"], inplace=True)
 
@@ -68,16 +96,13 @@ def run_pipeline(args: argparse.Namespace) -> None:
     training_mask = engineered.seasons.astype(int) < args.validation_season
     if training_mask.sum() == 0 or validation_mask.sum() == 0:
         raise ValueError(
-            f"Invalid split: train={int(training_mask.sum())}, valid={int(validation_mask.sum())}, "
+            f"Invalid split: train={int(training_mask.sum())}, "
+            f"valid={int(validation_mask.sum())}, "
             f"validation_season={args.validation_season}"
         )
 
-    best_iter = tune_iterations(
-        engineered,
-        tuning_season=args.tuning_season,
-        max_iter=args.max_iter,
-        seed=args.seed,
-    )
+    fixed_iter = int(args.max_iter)
+    LOGGER.info("HGB iteration policy: fixed max_iter=%d", fixed_iter)
 
     encoded = frequency_encode(
         engineered.features.loc[training_mask],
@@ -87,17 +112,19 @@ def run_pipeline(args: argparse.Namespace) -> None:
     y_train = engineered.target.loc[training_mask].to_numpy("int8")
     y_valid = engineered.target.loc[validation_mask].to_numpy("int8")
     all_idx = np.arange(len(encoded.feature_names), dtype="int32")
+
     run_signature = _stable_hash(
         {
-            "pipeline_version": 2,
+            "pipeline_version": 3,
             "train": _file_signature(train_path),
             "trackman": _file_signature(trackman_path),
             "mapping": _file_signature(mapping_path),
             "validation_season": args.validation_season,
-            "tuning_season": args.tuning_season,
+            "iteration_policy": "fixed",
+            "fixed_iter": fixed_iter,
+            "season_trend_min_history": args.season_trend_min_history,
             "max_rows_per_season": args.max_rows_per_season,
             "max_trackman_rows": args.max_trackman_rows,
-            "best_iter": best_iter,
             "features": encoded.feature_names,
             "permutation_repeats": args.permutation_repeats,
             "permutation_sample": args.permutation_sample,
@@ -105,7 +132,12 @@ def run_pipeline(args: argparse.Namespace) -> None:
         }
     )
 
-    LOGGER.info("Training full HGB: rows=%d features=%d iter=%d", len(y_train), len(all_idx), best_iter)
+    LOGGER.info(
+        "Training full HGB: rows=%d features=%d iter=%d",
+        len(y_train),
+        len(all_idx),
+        fixed_iter,
+    )
     start = time.perf_counter()
     full_model, full_probability, full_brier = fit_subset(
         encoded.x_train,
@@ -113,7 +145,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
         encoded.x_valid,
         y_valid,
         all_idx,
-        max_iter=best_iter,
+        max_iter=fixed_iter,
         seed=args.seed,
     )
     full_elapsed = time.perf_counter() - start
@@ -125,7 +157,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
         encoded,
         y_train,
         y_valid,
-        max_iter=best_iter,
+        max_iter=fixed_iter,
         seed=args.seed,
         full_brier=full_brier,
         checkpoint_path=output_dir / "checkpoints" / "block_ablation.csv",
@@ -154,7 +186,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
         y_valid,
         permutation,
         max_candidates=args.lofo_candidates,
-        max_iter=best_iter,
+        max_iter=fixed_iter,
         seed=args.seed,
         full_brier=full_brier,
         checkpoint_path=output_dir / "checkpoints" / "lofo_results.csv",
@@ -168,22 +200,25 @@ def run_pipeline(args: argparse.Namespace) -> None:
         lofo,
         drop_tolerance=args.lofo_drop_tolerance,
     )
-    selected_idx = np.array([encoded.feature_names.index(name) for name in selected_features], dtype="int32")
+    selected_idx = np.array(
+        [encoded.feature_names.index(name) for name in selected_features],
+        dtype="int32",
+    )
     selected_model, selected_probability, selected_brier = fit_subset(
         encoded.x_train,
         y_train,
         encoded.x_valid,
         y_valid,
         selected_idx,
-        max_iter=best_iter,
+        max_iter=fixed_iter,
         seed=args.seed,
     )
 
-    # Conservative safeguard: feature selection must not materially hurt the 2024 holdout.
     selection_accepted = selected_brier <= full_brier + args.max_selected_regret
     if not selection_accepted:
         LOGGER.warning(
-            "Combined selection worsened Brier by %.8f (> %.8f); falling back to full feature set.",
+            "Combined selection worsened Brier by %.8f (> %.8f); "
+            "falling back to full feature set.",
             selected_brier - full_brier,
             args.max_selected_regret,
         )
@@ -194,9 +229,16 @@ def run_pipeline(args: argparse.Namespace) -> None:
         selected_brier = full_brier
         selected_idx = all_idx
 
-    selected_score = score_row(y_valid, selected_probability, "selected", len(selected_features))
+    selected_score = score_row(
+        y_valid,
+        selected_probability,
+        "selected",
+        len(selected_features),
+    )
     selected_score["elapsed_seconds"] = np.nan
-    pd.DataFrame([full_score, selected_score]).to_csv(output_dir / "model_scores.csv", index=False)
+    pd.DataFrame([full_score, selected_score]).to_csv(
+        output_dir / "model_scores.csv", index=False
+    )
 
     permutation_lofo = permutation.merge(lofo, on="feature", how="left")
     block_map = _feature_catalog(engineered)[["feature", "block"]]
@@ -230,8 +272,11 @@ def run_pipeline(args: argparse.Namespace) -> None:
             "model": selected_model,
             "selected_features": selected_features,
             "encoder_state": encoded.encoder_state,
-            "best_iteration": best_iter,
+            "fixed_iteration": fixed_iter,
+            "best_iteration": fixed_iter,
+            "iteration_policy": "fixed",
             "validation_season": args.validation_season,
+            "season_trend_min_history": args.season_trend_min_history,
         },
         output_dir / "hgb_selected_model.joblib",
     )
@@ -244,8 +289,10 @@ def run_pipeline(args: argparse.Namespace) -> None:
         "train_rows": int(training_mask.sum()),
         "validation_rows": int(validation_mask.sum()),
         "validation_season": args.validation_season,
-        "tuning_season": args.tuning_season,
-        "best_iteration": best_iter,
+        "iteration_policy": "fixed",
+        "fixed_iteration": fixed_iter,
+        "best_iteration": fixed_iter,
+        "season_trend_min_history": args.season_trend_min_history,
         "full_feature_count": len(encoded.feature_names),
         "selected_feature_count": len(selected_features),
         "dropped_feature_count": len(dropped_features),
@@ -254,8 +301,9 @@ def run_pipeline(args: argparse.Namespace) -> None:
         "selected_brier": selected_brier,
         "delta_selected_minus_full": selected_brier - full_brier,
         "rules": [
-            "Train seasons < 2024, validate 2024.",
-            "HGB iterations tuned on 2023 using seasons < 2023, then held fixed for selection.",
+            f"Train seasons < {args.validation_season}, validate {args.validation_season}.",
+            f"HGB max_iter is fixed at {fixed_iter}; validation data never selects iteration count.",
+            "season_trend_prior for season S uses only target data from seasons < S.",
             "Trackman for a row uses only Trackman seasons < that row season.",
             "No current-pitch actual location, result, or actual pitch type is used.",
             "No test-row rolling/expanding statistics are created.",
@@ -275,17 +323,36 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Colab-ready literature-grounded HGB feature-selection pipeline (V2)."
+        description=(
+            "Colab-ready literature-grounded HGB feature-selection pipeline "
+            "with fixed iterations and leakage-safe season trend prior."
+        )
     )
     parser.add_argument("--train", required=True)
     parser.add_argument("--trackman", required=True)
     parser.add_argument("--mapping", default="resources/pitcher_trackman_mapping.csv")
     parser.add_argument("--output-dir", default="results/hgb_feature_selection_v2")
     parser.add_argument("--validation-season", type=int, default=2024)
-    parser.add_argument("--tuning-season", type=int, default=2023)
+    parser.add_argument(
+        "--tuning-season",
+        type=int,
+        default=None,
+        help="Deprecated compatibility argument; ignored because iterations are fixed.",
+    )
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--max-iter", type=int, default=350)
+    parser.add_argument(
+        "--max-iter",
+        type=int,
+        default=350,
+        help="Fixed HGB iterations. Full mode defaults to 350.",
+    )
     parser.add_argument("--shrinkage", type=float, default=50.0)
+    parser.add_argument(
+        "--season-trend-min-history",
+        type=int,
+        default=4,
+        help="Minimum completed seasons before linear season-rate extrapolation is used.",
+    )
     parser.add_argument("--trackman-shrinkage", type=float, default=100.0)
     parser.add_argument("--context-smoothing", type=float, default=50.0)
     parser.add_argument("--trackman-chunksize", type=int, default=250000)
@@ -311,7 +378,7 @@ def parse_args() -> argparse.Namespace:
         "--mode",
         choices=["quick", "full"],
         default="full",
-        help="quick sets safe development caps unless explicit caps were supplied.",
+        help="quick uses smaller data/iteration caps for smoke testing only.",
     )
     args = parser.parse_args()
     if args.mode == "quick":
@@ -323,11 +390,16 @@ def parse_args() -> argparse.Namespace:
         args.permutation_repeats = min(args.permutation_repeats, 2)
         args.lofo_candidates = min(args.lofo_candidates, 8)
         args.max_iter = min(args.max_iter, 120)
+    else:
+        args.max_iter = 350
     return args
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+    )
     run_pipeline(parse_args())
 
 
