@@ -1,0 +1,2 @@
+observed_delta,ci_low,ci_high,prob_I_better,bootstrap_mean,block_size,reps
+-4.828609752502002e-06,-2.775539273890135e-05,1.745266657210007e-05,0.6605,-4.951493041657133e-06,500,10000
