@@ -3,6 +3,11 @@ data/*
 !data/README.md
 results/
 submissions/
+analysis/outputs/
+model/
+*.zip
+*.npz
+*.csv.gz
 
 *.parquet
 *.feather

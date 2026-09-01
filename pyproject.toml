@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lg-aimers-experiment-lab"
+name = "lg-aimers-pitch-control"
 version = "0.4.0"
-description = "Configuration-driven, leakage-safe feature and model experiment lab"
+description = "Leakage-safe pitch-control probability modeling for LG Aimers"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

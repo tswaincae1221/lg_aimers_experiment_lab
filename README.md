@@ -1,8 +1,25 @@
-# LG Aimers 피처·모델 자동 실험실
+# LG Aimers: 투구 제구 성공 확률 예측
 
-기존 V1 155개 피처와 V1.1 `asof` 추세 실험을 확장한 설정 기반 실험
-프레임워크입니다. 팀 공통 비교 기준은 항상 **2019~2023 학습 → 2024 검증**으로
-고정합니다.
+투수·타자·경기 상황과 Trackman 이력을 이용해 투구의 제구 성공 확률을 예측하는
+프로젝트입니다. 현재는 **45-feature CatBoost를 안정적인 anchor로 유지**하면서,
+시간 누수 없는 `as-of` 피처, F/R 리그 차이, cold-start 투수 prior, calibration과
+선택적 overlay를 연구하고 있습니다.
+
+모델 선택에는 2019~2023을 사용하고, **2024는 최종 holdout 평가에만 사용**합니다.
+주 평가지표는 Brier Score이며 Log Loss, AUC와 calibration을 함께 확인합니다.
+
+## 현재 프로젝트 상태
+
+| 항목 | 현재 상태 |
+|---|---|
+| Anchor | 45-feature CatBoost (`new_baseline_final`, `M0_final45`) |
+| 2024 holdout Brier | 0.247442816 (raw anchor prediction) |
+| 검증 원칙 | 각 행에서 당시 알 수 있었던 정보만 사용하는 leakage-safe as-of 방식 |
+| 주요 연구 | F/R regime, temporal shift, cold-start prior, calibration, selective overlay |
+| Trackman | 경기 fingerprint 기반 deterministic 선수 매핑과 이전 시즌 집계 |
+
+2026년 8월 24일 이후의 실험과 채택·기각 판단은
+[진척사항 문서](docs/progress-2026-08-24-onward.md)에 정리했습니다.
 
 한 번의 실행으로 다음을 자동 처리합니다.
 
@@ -205,4 +222,4 @@ full 모드 결과로 결정합니다.
 ## 대회 데이터 보호
 
 대회 원본 데이터, 전처리 결과, 실행 결과와 학습 모델은 저장소에 포함하지 않습니다.
-대회 규정을 재확인하기 전까지 저장소는 비공개로 유지하는 것을 권장합니다.
+공개 저장소에는 재현 가능한 코드와 집계된 실험 결론만 포함합니다.
