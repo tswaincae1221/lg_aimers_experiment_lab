@@ -12,7 +12,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-
 PRIOR_COLUMNS = (
     "cold_start_prior",
     "cold_start_source",
@@ -37,16 +36,11 @@ def _pitcher_season_outcomes(train: pd.DataFrame) -> pd.DataFrame:
         raise KeyError(f"train columns missing: {sorted(missing)}")
 
     work = train.loc[:, list(required)].copy()
-    work["control_success"] = pd.to_numeric(
-        work["control_success"], errors="coerce"
-    )
-    out = (
-        work.groupby(["pitcher_id", "season"], as_index=False, sort=False)
-        .agg(
-            season_success_rate=("control_success", "mean"),
-            season_pitches=("control_success", "count"),
-            min_asof_n=("asof_pitcher_n", "min"),
-        )
+    work["control_success"] = pd.to_numeric(work["control_success"], errors="coerce")
+    out = work.groupby(["pitcher_id", "season"], as_index=False, sort=False).agg(
+        season_success_rate=("control_success", "mean"),
+        season_pitches=("control_success", "count"),
+        min_asof_n=("asof_pitcher_n", "min"),
     )
     # A pitcher is a true observed rookie only when an official pre-pitch
     # career count of zero is actually present.  Merely first appearing in a
@@ -55,9 +49,7 @@ def _pitcher_season_outcomes(train: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _season_fallbacks(
-    outcomes: pd.DataFrame, config: ColdStartConfig
-) -> pd.DataFrame:
+def _season_fallbacks(outcomes: pd.DataFrame, config: ColdStartConfig) -> pd.DataFrame:
     rows: list[dict[str, float | int]] = []
     for season, part in outcomes.groupby("season", sort=True):
         valid = part.loc[part["season_pitches"].gt(0), "season_success_rate"]
@@ -86,7 +78,7 @@ def build_cold_start_lookup(
     trackman_profiles: pd.DataFrame,
     *,
     profile_columns: list[str] | tuple[str, ...] | None = None,
-    config: ColdStartConfig = ColdStartConfig(),
+    config: ColdStartConfig | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Build `(pitcher_id, query season)` KNN priors and seasonal fallbacks.
 
@@ -96,6 +88,7 @@ def build_cold_start_lookup(
     from that same season, whose same-season official success rate is already
     known by query season Y.
     """
+    config = config or ColdStartConfig()
     required = {"pitcher_id", "season"}
     missing = required.difference(trackman_profiles.columns)
     if missing:
@@ -107,9 +100,7 @@ def build_cold_start_lookup(
         profile_columns = [
             c
             for c in profiles.columns
-            if c not in blocked
-            and pd.api.types.is_numeric_dtype(profiles[c])
-            and c != "tm_n"
+            if c not in blocked and pd.api.types.is_numeric_dtype(profiles[c]) and c != "tm_n"
         ]
     profile_columns = list(profile_columns)
     if not profile_columns:
@@ -117,9 +108,7 @@ def build_cold_start_lookup(
 
     if "tm_n" in profiles:
         profiles = profiles.loc[
-            pd.to_numeric(profiles["tm_n"], errors="coerce").ge(
-                config.min_profile_pitches
-            )
+            pd.to_numeric(profiles["tm_n"], errors="coerce").ge(config.min_profile_pitches)
         ].copy()
     profiles = profiles.drop_duplicates(["pitcher_id", "season"], keep="last")
 

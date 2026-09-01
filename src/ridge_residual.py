@@ -28,9 +28,7 @@ def fit_residual_preprocessor(
         frame[col] = values.fillna(median).astype("float32")
     for col in categorical:
         frame[col] = frame[col].astype("string").fillna("__MISSING__").astype(str)
-    encoded = pd.get_dummies(
-        frame, columns=categorical, dummy_na=False, dtype=np.float32
-    )
+    encoded = pd.get_dummies(frame, columns=categorical, dummy_na=False, dtype=np.float32)
     columns = encoded.columns.tolist()
     arr = encoded.to_numpy(dtype="float32")
     mean = arr.mean(axis=0, dtype="float64").astype("float32")
@@ -50,14 +48,14 @@ def fit_residual_preprocessor(
     return design.astype("float32"), prep
 
 
-def transform_residual_features(
-    X: pd.DataFrame, base_pred: np.ndarray, prep: dict
-) -> np.ndarray:
+def transform_residual_features(X: pd.DataFrame, base_pred: np.ndarray, prep: dict) -> np.ndarray:
     frame = X.loc[:, prep["source_features"]].copy()
     for col in prep["numeric_cols"]:
-        frame[col] = pd.to_numeric(frame[col], errors="coerce").fillna(
-            prep["numeric_medians"][col]
-        ).astype("float32")
+        frame[col] = (
+            pd.to_numeric(frame[col], errors="coerce")
+            .fillna(prep["numeric_medians"][col])
+            .astype("float32")
+        )
     for col in prep["categorical_cols"]:
         frame[col] = frame[col].astype("string").fillna("__MISSING__").astype(str)
     encoded = pd.get_dummies(
@@ -68,11 +66,13 @@ def transform_residual_features(
     ).reindex(columns=prep["encoded_columns"], fill_value=0.0)
     arr = encoded.to_numpy(dtype="float32")
     p = np.clip(np.asarray(base_pred, dtype="float32"), 1e-5, 1 - 1e-5)
-    return np.column_stack([
-        (arr - prep["mean"]) / prep["std"],
-        p,
-        np.log(p / (1 - p)),
-    ]).astype("float32")
+    return np.column_stack(
+        [
+            (arr - prep["mean"]) / prep["std"],
+            p,
+            np.log(p / (1 - p)),
+        ]
+    ).astype("float32")
 
 
 def fit_ridge_bundle(
@@ -94,11 +94,6 @@ def fit_ridge_bundle(
     }
 
 
-def predict_ridge_correction(
-    X: pd.DataFrame, base_pred: np.ndarray, bundle: dict
-) -> np.ndarray:
+def predict_ridge_correction(X: pd.DataFrame, base_pred: np.ndarray, bundle: dict) -> np.ndarray:
     design = transform_residual_features(X, base_pred, bundle["preprocessor"])
-    return (
-        design @ np.asarray(bundle["coef"], dtype="float32")
-        + float(bundle["intercept"])
-    )
+    return design @ np.asarray(bundle["coef"], dtype="float32") + float(bundle["intercept"])

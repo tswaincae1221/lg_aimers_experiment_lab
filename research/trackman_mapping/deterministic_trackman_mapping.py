@@ -10,9 +10,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
@@ -20,14 +18,27 @@ OUT = ROOT / "analysis" / "outputs"
 OUT.mkdir(parents=True, exist_ok=True)
 
 TEAM = {
-    "DOO_BEA": 12, "HAN_EAG": 17, "KIA_TIG": 16, "KIW_HER": 14,
-    "KT_WIZ": 20, "LG_TWI": 13, "LOT_GIA": 15, "NC_DIN": 19,
-    "SAM_LIO": 18, "SSG_LAN": 21, "SK_WYV": 21,
+    "DOO_BEA": 12,
+    "HAN_EAG": 17,
+    "KIA_TIG": 16,
+    "KIW_HER": 14,
+    "KT_WIZ": 20,
+    "LG_TWI": 13,
+    "LOT_GIA": 15,
+    "NC_DIN": 19,
+    "SAM_LIO": 18,
+    "SSG_LAN": 21,
+    "SK_WYV": 21,
 }
 
 STATE = [
-    "inning", "top_bottom", "balls_before", "strikes_before", "outs_before",
-    "pitcher_hand", "batter_hand",
+    "inning",
+    "top_bottom",
+    "balls_before",
+    "strikes_before",
+    "outs_before",
+    "pitcher_hand",
+    "batter_hand",
 ]
 
 
@@ -38,10 +49,21 @@ def seq_hash(frame: pd.DataFrame) -> str:
 
 def load_train() -> pd.DataFrame:
     cols = [
-        "row_id", "season", "game_month", "game_dayofweek", "inning",
-        "top_bottom", "balls_before", "strikes_before", "outs_before",
-        "pitcher_team_id", "batter_team_id", "pitcher_id", "batter_id",
-        "pitcher_hand", "batter_hand",
+        "row_id",
+        "season",
+        "game_month",
+        "game_dayofweek",
+        "inning",
+        "top_bottom",
+        "balls_before",
+        "strikes_before",
+        "outs_before",
+        "pitcher_team_id",
+        "batter_team_id",
+        "pitcher_id",
+        "batter_id",
+        "pitcher_hand",
+        "batter_hand",
     ]
     tr = pd.read_csv(DATA / "train.csv", usecols=cols)
     tr["pitcher_hand"] = tr["pitcher_hand"].map({2: "R", 1: "L"})
@@ -54,8 +76,7 @@ def assign_train_games(tr: pd.DataFrame) -> pd.DataFrame:
     team_lo = tr[["pitcher_team_id", "batter_team_id"]].min(axis=1)
     team_hi = tr[["pitcher_team_id", "batter_team_id"]].max(axis=1)
     flipped_same_inning = (
-        tr["inning"].eq(p["inning"])
-        & p["top_bottom"].eq("B") & tr["top_bottom"].eq("T")
+        tr["inning"].eq(p["inning"]) & p["top_bottom"].eq("B") & tr["top_bottom"].eq("T")
     )
     boundary = (
         tr["season"].ne(p["season"])
@@ -75,10 +96,24 @@ def assign_train_games(tr: pd.DataFrame) -> pd.DataFrame:
 
 def load_trackman() -> pd.DataFrame:
     cols = [
-        "trackman_id", "trackman_game_id", "game_date", "pitch_no", "season",
-        "game_month", "game_dayofweek", "inning", "top_bottom", "balls_before",
-        "strikes_before", "outs_before", "pitcher_team", "batter_team",
-        "pitcher_trackman_id", "batter_trackman_id", "pitcher_hand", "batter_hand",
+        "trackman_id",
+        "trackman_game_id",
+        "game_date",
+        "pitch_no",
+        "season",
+        "game_month",
+        "game_dayofweek",
+        "inning",
+        "top_bottom",
+        "balls_before",
+        "strikes_before",
+        "outs_before",
+        "pitcher_team",
+        "batter_team",
+        "pitcher_trackman_id",
+        "batter_trackman_id",
+        "pitcher_hand",
+        "batter_hand",
     ]
     tm = pd.read_csv(DATA / "trackman_history.csv", usecols=cols)
     tm["pitcher_team_id"] = tm["pitcher_team"].map(TEAM)
@@ -91,19 +126,26 @@ def load_trackman() -> pd.DataFrame:
 
 def game_catalog(df: pd.DataFrame, game_col: str, order_col: str) -> pd.DataFrame:
     rows = []
-    for gid, g in df.sort_values([game_col, order_col], kind="stable").groupby(game_col, sort=False):
+    for gid, g in df.sort_values([game_col, order_col], kind="stable").groupby(
+        game_col, sort=False
+    ):
         if not {"T", "B"}.issubset(set(g["top_bottom"].dropna())):
             continue
         first = g.iloc[0]
         home = int(g.loc[g["top_bottom"].eq("T"), "pitcher_team_id"].mode().iloc[0])
         away = int(g.loc[g["top_bottom"].eq("B"), "pitcher_team_id"].mode().iloc[0])
-        rows.append({
-            game_col: gid, "season": int(first["season"]),
-            "game_month": int(first["game_month"]),
-            "game_dayofweek": int(first["game_dayofweek"]),
-            "home_team_id": home, "away_team_id": away, "n_pitches": len(g),
-            "state_hash": seq_hash(g),
-        })
+        rows.append(
+            {
+                game_col: gid,
+                "season": int(first["season"]),
+                "game_month": int(first["game_month"]),
+                "game_dayofweek": int(first["game_dayofweek"]),
+                "home_team_id": home,
+                "away_team_id": away,
+                "n_pitches": len(g),
+                "state_hash": seq_hash(g),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -113,8 +155,13 @@ def main() -> None:
     tc = game_catalog(tr, "train_game_seq", "pitch_no_reconstructed")
     mc = game_catalog(tm, "trackman_game_id", "pitch_no")
     keys = [
-        "season", "game_month", "game_dayofweek", "home_team_id", "away_team_id",
-        "n_pitches", "state_hash",
+        "season",
+        "game_month",
+        "game_dayofweek",
+        "home_team_id",
+        "away_team_id",
+        "n_pitches",
+        "state_hash",
     ]
     tc_unique = tc[tc.groupby(keys)["train_game_seq"].transform("size").eq(1)]
     mc_unique = mc[mc.groupby(keys)["trackman_game_id"].transform("size").eq(1)]
@@ -125,17 +172,27 @@ def main() -> None:
     aligned = aligned.merge(
         tm[["trackman_game_id", "pitch_no", "pitcher_trackman_id", "batter_trackman_id"]],
         left_on=["trackman_game_id", "pitch_no_reconstructed"],
-        right_on=["trackman_game_id", "pitch_no"], validate="one_to_one",
+        right_on=["trackman_game_id", "pitch_no"],
+        validate="one_to_one",
     )
-    votes = aligned.groupby(["pitcher_trackman_id", "pitcher_id"]).size().rename("votes").reset_index()
+    votes = (
+        aligned.groupby(["pitcher_trackman_id", "pitcher_id"]).size().rename("votes").reset_index()
+    )
     votes["total_votes"] = votes.groupby("pitcher_trackman_id")["votes"].transform("sum")
     votes["purity"] = votes["votes"] / votes["total_votes"]
-    best = votes.sort_values(["pitcher_trackman_id", "votes", "pitcher_id"], kind="stable").groupby("pitcher_trackman_id").tail(1)
+    best = (
+        votes.sort_values(["pitcher_trackman_id", "votes", "pitcher_id"], kind="stable")
+        .groupby("pitcher_trackman_id")
+        .tail(1)
+    )
     best = best.sort_values("pitcher_trackman_id").reset_index(drop=True)
     best.to_csv(OUT / "pitcher_crosswalk_deterministic.csv", index=False)
     pairs.to_csv(OUT / "game_crosswalk_deterministic.csv", index=False)
     aligned.head(500).to_csv(OUT / "train_trackman_exact_preview.csv", index=False)
-    print(f"pitchers mapped={len(best):,}, mean purity={best.purity.mean():.6f}, min purity={best.purity.min():.6f}")
+    print(
+        f"pitchers mapped={len(best):,}, mean purity={best.purity.mean():.6f}, "
+        f"min purity={best.purity.min():.6f}"
+    )
     print(best.purity.describe().to_string())
     print("outputs:", OUT)
 

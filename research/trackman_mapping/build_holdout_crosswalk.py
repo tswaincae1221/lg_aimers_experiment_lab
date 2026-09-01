@@ -18,14 +18,22 @@ def main():
     aligned = aligned.merge(
         tm[["trackman_game_id", "pitch_no", "pitcher_trackman_id"]],
         left_on=["trackman_game_id", "pitch_no_reconstructed"],
-        right_on=["trackman_game_id", "pitch_no"], validate="one_to_one",
+        right_on=["trackman_game_id", "pitch_no"],
+        validate="one_to_one",
     )
     v = aligned.groupby(["pitcher_trackman_id", "pitcher_id"]).size().rename("votes").reset_index()
     v["total_votes"] = v.groupby("pitcher_trackman_id")["votes"].transform("sum")
     v["purity"] = v["votes"] / v["total_votes"]
-    best = v.sort_values(["pitcher_trackman_id", "votes", "pitcher_id"], kind="stable").groupby("pitcher_trackman_id").tail(1)
+    best = (
+        v.sort_values(["pitcher_trackman_id", "votes", "pitcher_id"], kind="stable")
+        .groupby("pitcher_trackman_id")
+        .tail(1)
+    )
     best.to_csv(dm.OUT / "pitcher_crosswalk_deterministic_pre2024.csv", index=False)
-    print(f"pre-2024 matched games={len(pairs):,}; pitchers={len(best):,}; mean purity={best.purity.mean():.6f}")
+    print(
+        f"pre-2024 matched games={len(pairs):,}; "
+        f"pitchers={len(best):,}; mean purity={best.purity.mean():.6f}"
+    )
 
 
 if __name__ == "__main__":
